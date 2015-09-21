@@ -64,8 +64,8 @@ Nicholas McCready - https://twitter.com/nmccready
 ;(function() {
   angular.module('uiGmapgoogle-maps.providers').factory('uiGmapMapScriptLoader', [
     '$q', 'uiGmapuuid', function($q, uuid) {
-      var getScriptUrl, includeScript, isGoogleMapsLoaded, lastNetworkStatus, scriptId;
-      scriptId = lastNetworkStatus = void 0;
+      var getScriptUrl, includeScript, isGoogleMapsLoaded, lastNetworkStatus, onWindowLoad, scriptId, windowLoadListenderAttached;
+      scriptId = lastNetworkStatus = windowLoadListenderAttached = void 0;
       getScriptUrl = function(options) {
         if (options.china) {
           return 'http://maps.google.cn/maps/api/js?';
@@ -100,6 +100,32 @@ Nicholas McCready - https://twitter.com/nmccready
       isGoogleMapsLoaded = function() {
         return angular.isDefined(window.google) && angular.isDefined(window.google.maps);
       };
+      onWindowLoad = function(options) {
+        if (!(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)) {
+          document.addEventListener('deviceready', function() {
+            if (window.navigator.connection && window.Connection && window.navigator.connection.type === window.Connection.NONE) {
+              document.addEventListener('online', function() {
+                if (!lastNetworkStatus || lastNetworkStatus !== 'online') {
+                  lastNetworkStatus = 'online';
+                  if (!isGoogleMapsLoaded()) {
+                    return includeScript(options);
+                  }
+                }
+              });
+              return document.addEventListener('offline', function() {
+                return lastNetworkStatus = 'offline';
+              });
+            } else {
+              return includeScript(options);
+            }
+          });
+        } else {
+          includeScript(options);
+        }
+        if (windowLoadListenderAttached) {
+          return window.removeEventListener('load', onWindowLoad, false);
+        }
+      };
       return {
         load: function(options) {
           var deferred, randomizedFunctionName;
@@ -113,29 +139,14 @@ Nicholas McCready - https://twitter.com/nmccready
             window[randomizedFunctionName] = null;
             deferred.resolve(window.google.maps);
           };
-          document.addEventListener('load', function() {
-            if (!(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)) {
-              return document.addEventListener('deviceready', function() {
-                if (window.navigator.connection && window.Connection && window.navigator.connection.type === window.Connection.NONE) {
-                  document.addEventListener('online', function() {
-                    if (!lastNetworkStatus || lastNetworkStatus !== 'online') {
-                      lastNetworkStatus = 'online';
-                      if (!isGoogleMapsLoaded()) {
-                        return includeScript(options);
-                      }
-                    }
-                  });
-                  return document.addEventListener('offline', function() {
-                    return lastNetworkStatus = 'offline';
-                  });
-                } else {
-                  return includeScript(options);
-                }
-              });
-            } else {
-              return includeScript(options);
-            }
-          });
+          if (document.readyState === 'complete') {
+            onWindowLoad(options);
+          } else {
+            windowLoadListenderAttached = true;
+            document.addEventListener('load', function() {
+              return onWindowLoad(options);
+            });
+          }
           return deferred.promise;
         }
       };
