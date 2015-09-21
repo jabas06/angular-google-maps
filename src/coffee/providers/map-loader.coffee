@@ -1,7 +1,7 @@
 # The service, that is a promise for a reference to window.google.maps
 angular.module('uiGmapgoogle-maps.providers')
 .factory('uiGmapMapScriptLoader', ['$q', 'uiGmapuuid', ($q, uuid) ->
-      scriptId = undefined
+      scriptId = lastNetworkStatus = undefined
 
       getScriptUrl = (options)->
         #china doesn't allow https and has a special url
@@ -58,7 +58,13 @@ angular.module('uiGmapgoogle-maps.providers')
             document.addEventListener 'deviceready', ->
               if window.navigator.connection && window.Connection && window.navigator.connection.type == window.Connection.NONE
                 document.addEventListener 'online', ->
-                  includeScript options if !isGoogleMapsLoaded()
+                  if !lastNetworkStatus || lastNetworkStatus != 'online'
+                    lastNetworkStatus = 'online';
+                    includeScript options if !isGoogleMapsLoaded()
+
+                document.addEventListener 'offline', ->
+                  lastNetworkStatus = 'offline';
+
               else
                 includeScript options
 
