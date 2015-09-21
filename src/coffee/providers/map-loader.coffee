@@ -49,11 +49,18 @@ angular.module('uiGmapgoogle-maps.providers')
           return
 
         # Cordova specific https://github.com/apache/cordova-plugin-network-information/
-        if window.navigator.connection && window.Connection && window.navigator.connection.type == window.Connection.NONE
-          document.addEventListener 'online', ->
-            includeScript options if !isGoogleMapsLoaded()
-        else
-          includeScript options
+        document.addEventListener 'load', ->
+          # if its a WebView
+          if !(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)
+            document.addEventListener 'deviceready', ->
+              if window.navigator.connection && window.Connection && window.navigator.connection.type == window.Connection.NONE
+                document.addEventListener 'online', ->
+                  includeScript options if !isGoogleMapsLoaded()
+              else
+                includeScript options
+
+          else
+            includeScript options
 
         # Return the promise
         deferred.promise
