@@ -2,6 +2,7 @@
 angular.module('uiGmapgoogle-maps.providers')
 .factory('uiGmapMapScriptLoader', ['$q', 'uiGmapuuid', ($q, uuid) ->
       scriptId = undefined
+      windowLoadListenderAttached = undefined
 
       getScriptUrl = (options)->
         #china doesn't allow https and has a special url
@@ -37,6 +38,22 @@ angular.module('uiGmapgoogle-maps.providers')
       isGoogleMapsLoaded = ->
         angular.isDefined(window.google) and angular.isDefined(window.google.maps)
 
+      onWindowLoad = (options)->
+        # if its a WebView
+        if !(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)
+          document.addEventListener 'deviceready', ->
+            # Cordova specific https://github.com/apache/cordova-plugin-network-information/
+            if window.navigator.connection && window.Connection && window.navigator.connection.type == window.Connection.NONE
+              document.addEventListener 'online', ->
+                includeScript options if !isGoogleMapsLoaded()
+            else
+              includeScript options
+
+        else
+          includeScript options
+
+        window.removeEventListener 'load', onWindowLoad, false if windowLoadListenderAttached
+
       load: (options)->
         deferred = $q.defer()
 
@@ -51,19 +68,11 @@ angular.module('uiGmapgoogle-maps.providers')
           deferred.resolve window.google.maps
           return
 
-        # Cordova specific https://github.com/apache/cordova-plugin-network-information/
-        document.addEventListener 'load', ->
-          # if its a WebView
-          if !(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)
-            document.addEventListener 'deviceready', ->
-              if window.navigator.connection && window.Connection && window.navigator.connection.type == window.Connection.NONE
-                document.addEventListener 'online', ->
-                  includeScript options if !isGoogleMapsLoaded()
-              else
-                includeScript options
-
-          else
-            includeScript options
+        if document.readyState == 'complete'
+          onWindowLoad(options)
+        else
+          windowLoadListenderAttached = true;
+          document.addEventListener 'load', -> onWindowLoad(options)
 
         # Return the promise
         deferred.promise
