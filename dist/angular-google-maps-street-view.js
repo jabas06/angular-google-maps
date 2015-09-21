@@ -1,4 +1,4 @@
-/*! angular-google-maps 2.2.1 2015-09-15
+/*! angular-google-maps 2.2.1 2015-09-21
  *  AngularJS directives for Google Maps
  *  git: https://github.com/angular-ui/angular-google-maps.git
  */
@@ -76,8 +76,8 @@ return UUID;
 ;(function() {
   angular.module('uiGmapgoogle-maps.providers').factory('uiGmapMapScriptLoader', [
     '$q', 'uiGmapuuid', function($q, uuid) {
-      var getScriptUrl, includeScript, isGoogleMapsLoaded, scriptId;
-      scriptId = void 0;
+      var getScriptUrl, includeScript, isGoogleMapsLoaded, lastNetworkStatus, scriptId;
+      scriptId = lastNetworkStatus = void 0;
       getScriptUrl = function(options) {
         if (options.china) {
           return 'http://maps.google.cn/maps/api/js?';
@@ -90,7 +90,7 @@ return UUID;
         }
       };
       includeScript = function(options) {
-        var omitOptions, query, script;
+        var omitOptions, query, script, scriptElem;
         omitOptions = ['transport', 'isGoogleMapsForWork', 'china'];
         if (options.isGoogleMapsForWork) {
           omitOptions.push('key');
@@ -99,7 +99,8 @@ return UUID;
           return k + '=' + v;
         });
         if (scriptId) {
-          document.getElementById(scriptId).remove();
+          scriptElem = document.getElementById(scriptId);
+          scriptElem.parentNode.removeChild(scriptElem);
         }
         query = query.join('&');
         script = document.createElement('script');
@@ -124,15 +125,29 @@ return UUID;
             window[randomizedFunctionName] = null;
             deferred.resolve(window.google.maps);
           };
-          if (window.navigator.connection && window.Connection && window.navigator.connection.type === window.Connection.NONE) {
-            document.addEventListener('online', function() {
-              if (!isGoogleMapsLoaded()) {
-                return includeScript(options);
-              }
-            });
-          } else {
-            includeScript(options);
-          }
+          document.addEventListener('load', function() {
+            if (!(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)) {
+              return document.addEventListener('deviceready', function() {
+                if (window.navigator.connection && window.Connection && window.navigator.connection.type === window.Connection.NONE) {
+                  document.addEventListener('online', function() {
+                    if (!lastNetworkStatus || lastNetworkStatus !== 'online') {
+                      lastNetworkStatus = 'online';
+                      if (!isGoogleMapsLoaded()) {
+                        return includeScript(options);
+                      }
+                    }
+                  });
+                  return document.addEventListener('offline', function() {
+                    return lastNetworkStatus = 'offline';
+                  });
+                } else {
+                  return includeScript(options);
+                }
+              });
+            } else {
+              return includeScript(options);
+            }
+          });
           return deferred.promise;
         }
       };
