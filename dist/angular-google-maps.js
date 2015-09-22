@@ -1,4 +1,4 @@
-/*! angular-google-maps 2.2.1 2015-09-21
+/*! angular-google-maps 2.2.1 2015-09-22
  *  AngularJS directives for Google Maps
  *  git: https://github.com/angular-ui/angular-google-maps.git
  */
@@ -64,8 +64,8 @@ Nicholas McCready - https://twitter.com/nmccready
 ;(function() {
   angular.module('uiGmapgoogle-maps.providers').factory('uiGmapMapScriptLoader', [
     '$q', 'uiGmapuuid', function($q, uuid) {
-      var getScriptUrl, includeScript, isGoogleMapsLoaded, lastNetworkStatus, onWindowLoad, scriptId, windowLoadListenderAttached;
-      scriptId = lastNetworkStatus = windowLoadListenderAttached = void 0;
+      var getScriptUrl, includeScript, isGoogleMapsLoaded, lastNetworkStatus, onWindowLoad, scriptId;
+      scriptId = lastNetworkStatus = void 0;
       getScriptUrl = function(options) {
         if (options.china) {
           return 'http://maps.google.cn/maps/api/js?';
@@ -102,7 +102,7 @@ Nicholas McCready - https://twitter.com/nmccready
       };
       onWindowLoad = function(options) {
         if (!(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)) {
-          document.addEventListener('deviceready', function() {
+          return document.addEventListener('deviceready', function() {
             if (window.navigator.connection && window.Connection && window.navigator.connection.type === window.Connection.NONE) {
               document.addEventListener('online', function() {
                 if (!lastNetworkStatus || lastNetworkStatus !== 'online') {
@@ -120,10 +120,7 @@ Nicholas McCready - https://twitter.com/nmccready
             }
           });
         } else {
-          includeScript(options);
-        }
-        if (windowLoadListenderAttached) {
-          return window.removeEventListener('load', onWindowLoad, false);
+          return includeScript(options);
         }
       };
       return {
@@ -142,8 +139,8 @@ Nicholas McCready - https://twitter.com/nmccready
           if (document.readyState === 'complete') {
             onWindowLoad(options);
           } else {
-            windowLoadListenderAttached = true;
-            document.addEventListener('load', function() {
+            window.addEventListener('load', function() {
+              window.removeEventListener('load', onWindowLoad, false);
               return onWindowLoad(options);
             });
           }
