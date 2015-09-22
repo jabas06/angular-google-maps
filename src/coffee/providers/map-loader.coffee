@@ -2,7 +2,6 @@
 angular.module('uiGmapgoogle-maps.providers')
 .factory('uiGmapMapScriptLoader', ['$q', 'uiGmapuuid', ($q, uuid) ->
       scriptId = undefined
-      windowLoadListenderAttached = undefined
 
       getScriptUrl = (options)->
         #china doesn't allow https and has a special url
@@ -52,8 +51,6 @@ angular.module('uiGmapgoogle-maps.providers')
         else
           includeScript options
 
-        window.removeEventListener 'load', onWindowLoad, false if windowLoadListenderAttached
-
       load: (options)->
         deferred = $q.defer()
 
@@ -71,8 +68,9 @@ angular.module('uiGmapgoogle-maps.providers')
         if document.readyState == 'complete'
           onWindowLoad(options)
         else
-          windowLoadListenderAttached = true;
-          document.addEventListener 'load', -> onWindowLoad(options)
+          window.addEventListener 'load', ->
+            window.removeEventListener 'load', onWindowLoad, false
+            onWindowLoad(options)
 
         # Return the promise
         deferred.promise
