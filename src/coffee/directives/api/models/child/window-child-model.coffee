@@ -1,3 +1,4 @@
+###global _:true,angular:true,google:true###
 angular.module('uiGmapgoogle-maps.directives.api.models.child')
 .factory 'uiGmapWindowChildModel',
   ['uiGmapBaseObject', 'uiGmapGmapUtil', 'uiGmapLogger', '$compile', '$http', '$templateCache',
@@ -6,12 +7,18 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
       class WindowChildModel extends BaseObject
         @include GmapUtil
         @include EventsHelper
-        constructor: (@model, @scope, @opts, @isIconVisibleOnClick, @mapCtrl, @markerScope, @element,
-          @needToManualDestroy = false, @markerIsVisibleAfterWindowClose = true) ->
+        constructor: (opts) ->
+          {
+            @model = {}, @scope, @opts, @isIconVisibleOnClick,
+            @gMap, @markerScope, @element,
+            @needToManualDestroy = false,
+            @markerIsVisibleAfterWindowClose = true,
+            @isScopeModel = false
+          } = opts
 
           #where @model is a reference to model in the controller scope
           #clonedModel is a copy for comparison
-          @clonedModel = _.clone @model, true
+          @clonedModel = _.clone @model, true if @isScopeModel
 
           @getGmarker = ->
             @markerScope?.getGMarker() if @markerScope?['getGMarker']?
@@ -146,35 +153,39 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
             @listeners = @listeners.concat @setEvents maybeMarker, {events: {click: click}}, @model
 
         showWindow: =>
-          if @gObject?
-            show = =>
-              unless @gObject.isOpen()
-                maybeMarker = @getGmarker()
-                pos = @gObject.getPosition() if @gObject? and @gObject.getPosition?
-                pos = maybeMarker.getPosition() if maybeMarker
-                return unless pos
-                @gObject.open @mapCtrl, maybeMarker
-                isOpen = @gObject.isOpen()
-                @model.show = isOpen if @model.show != isOpen
+          return unless @gObject?
+          templateScope = null
 
-            if @scope.templateUrl
-              $http.get(@scope.templateUrl, { cache: $templateCache }).then (content) =>
-                templateScope = @scope.$new()
-                if angular.isDefined @scope.templateParameter
-                  templateScope.parameter = @scope.templateParameter
-                compiled = $compile(content.data) templateScope
-                @gObject.setContent compiled[0]
-                show()
+          show = =>
+            unless @gObject.isOpen()
+              maybeMarker = @getGmarker()
+              pos = @gObject.getPosition() if @gObject? and @gObject.getPosition?
+              pos = maybeMarker.getPosition() if maybeMarker
+              return unless pos
+              @gObject.open @gMap, maybeMarker
+              isOpen = @gObject.isOpen()
+              @model.show = isOpen if @model.show != isOpen
 
-            else if @scope.template
+          if @scope.templateUrl
+            $http.get(@scope.templateUrl, { cache: $templateCache }).then (content) =>
               templateScope = @scope.$new()
-              if angular.isDefined(@scope.templateParameter)
+              if angular.isDefined @scope.templateParameter
                 templateScope.parameter = @scope.templateParameter
-              compiled = $compile(@scope.template) templateScope
+              compiled = $compile(content.data) templateScope
               @gObject.setContent compiled[0]
               show()
-            else
-              show()
+
+          else if @scope.template
+            templateScope = @scope.$new()
+            if angular.isDefined(@scope.templateParameter)
+              templateScope.parameter = @scope.templateParameter
+            compiled = $compile(@scope.template) templateScope
+            @gObject.setContent compiled[0]
+            show()
+          else
+            show()
+
+          @scope.$on 'destroy', -> templateScope.$destroy()
 
         hideWindow: =>
           @gObject.close() if @gObject? and @gObject.isOpen()
@@ -193,14 +204,14 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
           delete @gObject
           delete @opts
 
-        destroy: (manualOverride = false)=>
+        destroy: (manualOverride = false) =>
           @remove()
-          if @scope? and not @scope?.$$destroyed and (@needToManualDestroy or manualOverride)
+          if (@scope? and not @scope?.$$destroyed) and (@needToManualDestroy or manualOverride)
             @scope.$destroy()
 
         updateModel: (model) =>
-          @clonedModel = _.clone(model,true)
-          _.extend(@model, @clonedModel)
+          @clonedModel = _.clone(model,true) if @isScopeModel
+          _.extend(@model, @clonedModel or model)
 
       WindowChildModel
   ]

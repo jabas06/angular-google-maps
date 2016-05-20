@@ -1,11 +1,34 @@
+###global _:true, angular:true ###
 angular.module('uiGmapgoogle-maps.extensions')
 .service 'uiGmapLodash', ->
+  # Used to match property names within property paths.
+  rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\n\\]|\\.)*?)\2)\]/g
+  #Used to match backslashes in property paths.
+  reEscapeChar = /\\(\\)?/g
+
+  ###
+      For Lodash 4 compatibility (some aliases are removed)
+  ###
+  fixLodash = ({missingName, swapName, isProto}) ->
+    unless _[missingName]?
+      _[missingName] = _[swapName]
+      _::[missingName] = _[swapName] if isProto
+
+  [
+    {missingName: 'contains', swapName: 'includes', isProto: true}
+    {missingName: 'includes', swapName: 'contains', isProto: true}
+    {missingName: 'object', swapName: 'zipObject'}
+    {missingName: 'zipObject', swapName: 'object'}
+    {missingName: 'all', swapName: 'every'}
+    {missingName: 'every', swapName: 'all'}
+    {missingName: 'any', swapName: 'some'}
+    {missingName: 'some', swapName: 'any'}
+    {missingName: 'first', swapName: 'head'}
+    {missingName: 'head', swapName: 'first'}
+  ].forEach (toMonkeyPatch) ->
+    fixLodash(toMonkeyPatch)
 
   unless _.get?#fill dependency if missing
-    # Used to match property names within property paths.
-    reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\n\\]|\\.)*?\1)\]/
-    reIsPlainProp = /^\w*$/
-    rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\n\\]|\\.)*?)\2)\]/g
     ###*
     # Converts `value` to an object if it's not one.
     #
@@ -59,7 +82,7 @@ angular.module('uiGmapgoogle-maps.extensions')
       if object == null
         return
       if pathKey != undefined and pathKey of toObject(object)
-        path = [ pathKey ]
+        path = [pathKey]
       index = 0
       length = path.length
       while !_.isUndefined(object) and index < length
@@ -96,59 +119,61 @@ angular.module('uiGmapgoogle-maps.extensions')
       if result == undefined then defaultValue else result
 
     _.get = get
+
+
   ###
       Author Nick McCready
       Intersection of Objects if the arrays have something in common each intersecting object will be returned
       in an new array.
   ###
   @intersectionObjects = (array1, array2, comparison = undefined) ->
-      res = _.map array1, (obj1) =>
-          _.find array2, (obj2) =>
-              if comparison?
-                  comparison(obj1, obj2)
-              else
-                  _.isEqual(obj1, obj2)
-      _.filter res, (o) ->
-          o?
+    res = _.map array1, (obj1) ->
+      _.find array2, (obj2) ->
+        if comparison?
+          comparison(obj1, obj2)
+        else
+          _.isEqual(obj1, obj2)
+    _.filter res, (o) ->
+      o?
 
   # Determine if the array or object contains a given value (using `===`).
   #Aliased as `include`.
   @containsObject = _.includeObject = (obj, target, comparison = undefined) ->
-      if (obj == null)
-          return false
-      #    if (nativeIndexOf && obj.indexOf == nativeIndexOf)
-      #        return obj.indexOf(target) != -1
-      _.any obj, (value) =>
-          if comparison?
-              comparison value, target
-          else
-              _.isEqual value, target
+    if (obj == null)
+      return false
+    #    if (nativeIndexOf && obj.indexOf == nativeIndexOf)
+    #        return obj.indexOf(target) != -1
+    _.some obj, (value) ->
+      if comparison?
+        comparison value, target
+      else
+        _.isEqual value, target
 
 
   @differenceObjects = (array1, array2, comparison = undefined) ->
-      _.filter array1, (value) =>
-          !@containsObject array2, value, comparison
+    _.filter array1, (value) =>
+      !@containsObject array2, value, comparison
 
   #alias to differenceObjects
   @withoutObjects = @differenceObjects
 
   @indexOfObject = (array, item, comparison, isSorted) ->
-      return -1  unless array?
-      i = 0
-      length = array.length
-      if isSorted
-          if typeof isSorted is "number"
-              i = ((if isSorted < 0 then Math.max(0, length + isSorted) else isSorted))
-          else
-              i = _.sortedIndex(array, item)
-              return (if array[i] is item then i else -1)
-      while i < length
-          if comparison?
-              return i if comparison array[i], item
-          else
-              return i if _.isEqual array[i], item
-          i++
-      -1
+    return -1  unless array?
+    i = 0
+    length = array.length
+    if isSorted
+      if typeof isSorted is "number"
+        i = ((if isSorted < 0 then Math.max(0, length + isSorted) else isSorted))
+      else
+        i = _.sortedIndex(array, item)
+        return (if array[i] is item then i else -1)
+    while i < length
+      if comparison?
+        return i if comparison array[i], item
+      else
+        return i if _.isEqual array[i], item
+      i++
+    -1
 
   @isNullOrUndefined = (thing) ->
     _.isNull thing or _.isUndefined thing

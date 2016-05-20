@@ -1,3 +1,4 @@
+###global _,angular###
 ###
 	WindowsChildModel generator where there are many ChildModels to a parent.
 ###
@@ -65,16 +66,16 @@ angular.module('uiGmapgoogle-maps.directives.api.models.parent')
               @onDestroy(doDelete).then =>
                 @createChildScopes() if doCreate
 
-          onDestroy:(scope) =>
+          onDestroy: (scope) =>
             super(@scope)
             _async.promiseLock @, uiGmapPromise.promiseTypes.delete, undefined, undefined, =>
-              _async.each @plurals.values(), (child) =>
-                child.destroy()
+              _async.each @plurals.values(), (child) ->
+                child.destroy(true)#this allows scope.$destroy to be called on the child with out recursion issues
               , _async.chunkSizeFrom(@scope.cleanchunk, false)
               .then =>
                 @plurals?.removeAll()
 
-          watchDestroy: (scope)=>
+          watchDestroy: (scope) =>
             scope.$on '$destroy', =>
               @firstWatchModels = true
               @firstTime = true
@@ -120,7 +121,7 @@ angular.module('uiGmapgoogle-maps.directives.api.models.parent')
                 else
                   @pieceMeal @markersScope, true, 'plurals', false
 
-          watchIdKey: (scope)=>
+          watchIdKey: (scope) =>
             @setIdKey scope
             scope.$watch 'idKey', (newValue, oldValue) =>
               if (newValue != oldValue and !newValue?)
@@ -149,7 +150,7 @@ angular.module('uiGmapgoogle-maps.directives.api.models.parent')
                 .then =>
                   @firstTime = false
 
-          pieceMeal: (scope, hasGMarker, modelsPropToIterate = 'models', isArray = true)=>
+          pieceMeal: (scope, hasGMarker, modelsPropToIterate = 'models', isArray = true) =>
             return if scope.$$destroyed
             maybeCanceled = null
             payload = null
@@ -160,7 +161,7 @@ angular.module('uiGmapgoogle-maps.directives.api.models.parent')
                 uiGmapPromise.promise((=> @figureOutState @idKey, scope, @plurals, @modelKeyComparison))
                 .then (state) =>
                   payload = state
-                  _async.each payload.removals, (child)=>
+                  _async.each payload.removals, (child) =>
                     if child?
                       @plurals.remove(child.id)
                       child.destroy(true) if child.destroy?
@@ -183,11 +184,11 @@ angular.module('uiGmapgoogle-maps.directives.api.models.parent')
               $log.debug('pieceMeal: rebuildAll')
               @rebuildAll(@scope, true, true)
 
-          setContentKeys: (models)=>
+          setContentKeys: (models) =>
             if @modelsLength(models)
               @contentKeys = Object.keys(models[0])
 
-          createWindow: (model, gMarker, gMap)=>
+          createWindow: (model, gMarker, gMap) =>
             childScope = @linked.scope.$new(false)
             @setChildScope(childScope, model)
             childScope.$watch('model', (newValue, oldValue) =>
@@ -200,7 +201,17 @@ angular.module('uiGmapgoogle-maps.directives.api.models.parent')
                 @interpolateContent(@linked.element.html(), model)
             @DEFAULTS = @scopeOrModelVal(@optionsKey, @scope, model) or {}
             opts = @createWindowOptions gMarker, childScope, fakeElement.html(), @DEFAULTS
-            child = new WindowChildModel model, childScope, opts, @isIconVisibleOnClick, gMap, @markersScope?.plurals.get(model[@idKey])?.scope, fakeElement, false, true
+
+            child = new WindowChildModel {
+              model, scope: childScope, opts,
+              isIconVisibleOnClick: @isIconVisibleOnClick,
+              gMap,
+              markerScope: @markersScope?.plurals.get(model[@idKey])?.scope,
+              element: fakeElement,
+              needToManualDestroy: false,
+              markerIsVisibleAfterWindowClose: true,
+              isScopeModel: true
+            }
 
             unless model[@idKey]?
               @$log.error('Window model has no id to assign a child to. This is required for performance. Please assign id, or redirect id to a different key.')

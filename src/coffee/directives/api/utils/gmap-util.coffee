@@ -1,3 +1,4 @@
+###global _:true, angular:true, google:true  ###
 angular.module('uiGmapgoogle-maps.directives.api.utils')
 .service 'uiGmapGmapUtil', ['uiGmapLogger', '$compile', (Logger, $compile) ->
   #BEGIN Private Methods
@@ -25,7 +26,9 @@ angular.module('uiGmapgoogle-maps.directives.api.utils')
 
   getCoords = (value) ->
     return unless value
-    if Array.isArray(value) and value.length is 2
+    if value instanceof google.maps.LatLng
+      return value
+    else if Array.isArray(value) and value.length is 2
       new google.maps.LatLng(value[1], value[0])
     else if angular.isDefined(value.type) and value.type is 'Point'
       new google.maps.LatLng(value.coordinates[1], value.coordinates[0])
@@ -150,7 +153,7 @@ angular.module('uiGmapgoogle-maps.directives.api.utils')
           if polygon[0].length > this.max
             this.max = polygon[0].length
             this.index = index
-        , trackMaxVertices);
+        , trackMaxVertices)
 
         #TODO: Properly support MultiPolygons
         polygon = path.coordinates[trackMaxVertices.index]
@@ -199,7 +202,7 @@ angular.module('uiGmapgoogle-maps.directives.api.utils')
           if polygon[0].length > this.max
             this.max = polygon[0].length
             this.index = index
-        , trackMaxVertices);
+        , trackMaxVertices)
 
         #TODO: Properly support MultiPolygons
         array = path.coordinates[trackMaxVertices.index][0]

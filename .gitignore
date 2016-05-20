@@ -14,9 +14,9 @@ _SpecRunner.html
 /spec/coverage
 *.iml
 /bower_components
-/curl_components
 .tmp
 /app
+/dist/coverage/
 
 # Meteor package creation files
 .versions

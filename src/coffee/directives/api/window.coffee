@@ -1,9 +1,10 @@
+###global angular:true###
 angular.module('uiGmapgoogle-maps.directives.api')
 .factory 'uiGmapWindow', [ 'uiGmapIWindow', 'uiGmapGmapUtil', 'uiGmapWindowChildModel','uiGmapLodash', 'uiGmapLogger',
   (IWindow, GmapUtil, WindowChildModel, uiGmapLodash, $log) ->
     class Window extends IWindow
       @include GmapUtil
-      constructor:  ->
+      constructor: ->
         super()
         @require = ['^' + 'uiGmapGoogleMap', '^?' + 'uiGmapMarker']
         @template = '<span class="angular-google-maps-window" ng-transclude></span>'
@@ -17,26 +18,28 @@ angular.module('uiGmapgoogle-maps.directives.api')
         #end of keep out of promise
         @mapPromise = IWindow.mapPromise(scope, ctrls[0])
         #looks like angulars $q is FIFO and Bluebird is LIFO
-        @mapPromise.then (mapCtrl) =>
+        @mapPromise.then (gMap) =>
           isIconVisibleOnClick = true
 
           if angular.isDefined attrs.isiconvisibleonclick
             isIconVisibleOnClick = scope.isIconVisibleOnClick
           if not markerCtrl
-            @init scope, element, isIconVisibleOnClick, mapCtrl
+            @init scope, element, isIconVisibleOnClick, gMap
             return
           markerScope.deferred.promise.then  (gMarker) =>
-            @init scope, element, isIconVisibleOnClick, mapCtrl, markerScope
+            @init scope, element, isIconVisibleOnClick, gMap, markerScope
 
       # post: (scope, element, attrs, ctrls) =>
 
-      init: (scope, element, isIconVisibleOnClick, mapCtrl, markerScope) ->
+      init: (scope, element, isIconVisibleOnClick, gMap, markerScope) ->
         defaults = if scope.options? then scope.options else {}
         hasScopeCoords = scope? and @validateCoords(scope.coords)
         gMarker = markerScope.getGMarker() if markerScope?['getGMarker']?
         opts = if hasScopeCoords then @createWindowOptions(gMarker, scope, element.html(), defaults) else defaults
-        if mapCtrl? #at the very least we need a Map, the marker is optional as we can create Windows without markers
-          childWindow = new WindowChildModel {}, scope, opts, isIconVisibleOnClick, mapCtrl, markerScope, element
+        if gMap? #at the very least we need a Map, the marker is optional as we can create Windows without markers
+          childWindow = new WindowChildModel {
+            scope, opts, isIconVisibleOnClick, gMap, markerScope, element
+          }
           @childWindows.push childWindow
 
           scope.$on '$destroy', =>
@@ -46,16 +49,16 @@ angular.module('uiGmapgoogle-maps.directives.api')
 
         if scope.control?
           scope.control.getGWindows = =>
-            @childWindows.map (child)=>
+            @childWindows.map (child) ->
               child.gObject
           scope.control.getChildWindows = =>
             @childWindows
           scope.control.getPlurals = scope.control.getChildWindows
           scope.control.showWindow = =>
-            @childWindows.map (child) =>
+            @childWindows.map (child) ->
               child.showWindow()
           scope.control.hideWindow = =>
-            @childWindows.map (child) =>
+            @childWindows.map (child) ->
               child.hideWindow()
 
         @onChildCreation childWindow if @onChildCreation? and childWindow?

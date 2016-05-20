@@ -1,3 +1,4 @@
+###global _:true,angular:true,google:true, RichMarker:true###
 angular.module('uiGmapgoogle-maps.directives.api.models.child')
 .factory 'uiGmapMarkerChildModel', [
   'uiGmapModelKey', 'uiGmapGmapUtil',
@@ -19,11 +20,16 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
             child.gObject.setMap null
             child.gObject = null
 
-      constructor: (scope, @model, @keys, @gMap, @defaults, @doClick, @gManager, @doDrawSelf = true,
-        @trackModel = true, @needRedraw = false) ->
+      constructor: (opts) ->
+        {
+          scope, @model, @keys, @gMap, @defaults = {},
+          @doClick, @gManager, @doDrawSelf = true,
+          @trackModel = true, @needRedraw = false
+          @isScopeModel = false
+        } = opts
         #where @model is a reference to model in the controller scope
-        #clonedModel is a copy for comparison
-        @clonedModel = _.clone(@model,true)
+        #clonedModel is a copy for comparison (see models-watcher)
+        @clonedModel = _.clone(@model,true) if @isScopeModel
         @deferred = uiGmapPromise.defer()
         _.each @keys, (v, k) =>
           keyValue = @keys[k]
@@ -45,14 +51,15 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
               @handleModelChanges newValue, oldValue
           , true
         else
-          action = new PropertyAction (calledKey, newVal) =>
+          action = new PropertyAction (calledKey) =>
             #being in a closure works , direct to setMyScope is not working (but should?)
+            calledKey =  'all' if _.isFunction calledKey
             if not @firstTime
               @setMyScope calledKey, scope
           , false
 
           _.each @keys, (v, k) ->
-            scope.$watch k, action.sic, true
+            scope.$watch k, action.sic(k), true
 
         #hiding destroy functionality as it should only be called via scope.$destroy()
         @scope.$on '$destroy', =>
@@ -63,8 +70,7 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
         @createMarker @model
         $log.info @
 
-
-      destroy: (removeFromManager = true)=>
+      destroy: (removeFromManager = true) =>
         @removeFromManager = removeFromManager
         @scope.$destroy()
 
@@ -80,7 +86,7 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
             @needRedraw = true
 
       updateModel: (model) =>
-        @clonedModel = _.clone(model,true) #changed from _.clone(model, true) eliminates lodash dep (so you can use underscore)
+        @clonedModel = _.clone(model,true) if @isScopeModel
         @setMyScope 'all', model, @model
 
       renderGMarker: (doDraw = true, validCb) ->
@@ -114,19 +120,18 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
             _.each @keys, (v, k) =>
               @setMyScope k, model, oldModel, isInit, doDraw
           when 'icon'
-            @maybeSetScopeValue 'icon', model, oldModel, @iconKey, @evalModelHandle, isInit, @setIcon, doDraw
+            @maybeSetScopeValue {gSetter: @setIcon, doDraw}
           when 'coords'
-            @maybeSetScopeValue 'coords', model, oldModel, @coordsKey, @evalModelHandle, isInit, @setCoords, doDraw
+            @maybeSetScopeValue {gSetter: @setCoords, doDraw}
           when 'options'
             @createMarker(model, oldModel, isInit, doDraw) if !justCreated
 
-      createMarker: (model, oldModel = undefined, isInit = false, doDraw = true)=>
-        @maybeSetScopeValue 'options', model, oldModel, @optionsKey, @evalModelHandle, isInit, @setOptions, doDraw
+      createMarker: (model, oldModel = undefined, isInit = false, doDraw = true) =>
+        @maybeSetScopeValue {gSetter: @setOptions, doDraw}
         @firstTime = false
 
-      maybeSetScopeValue: (scopePropName, model, oldModel, modelKey, evaluate, isInit, gSetter = undefined,
-        doDraw = true) =>
-          gSetter(@scope, doDraw) if gSetter?
+      maybeSetScopeValue: ({gSetter, doDraw = true}) =>
+        gSetter(@scope, doDraw) if gSetter?
         @gManager.draw() if @doDrawSelf and doDraw
 
       isNotValid: (scope, doCheckGmarker = true) =>
@@ -188,7 +193,7 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
           @removeEvents @internalListeners if @internalListeners
           @externalListeners = @setEvents @gObject, @scope, @model, ['dragend']
           #must pass fake $evalAsync see events-helper
-          @internalListeners = @setEvents @gObject, {events: @internalEvents(), $evalAsync: () ->}, @model
+          @internalListeners = @setEvents @gObject, {events: @internalEvents(), $evalAsync: -> }, @model
 
           @gObject.key = @id if @id?
 
@@ -218,7 +223,7 @@ angular.module('uiGmapgoogle-maps.directives.api.models.child')
           @scope.$apply()
         click: (marker, eventName, model, mousearg) =>
           click = @getProp 'click', @scope, @model
-          if @doClick and click?
+          if @doClick and angular.isFunction(click)
             @scope.$evalAsync click marker, eventName, @model, mousearg
 
     MarkerChildModel
