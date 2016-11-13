@@ -1,4 +1,4 @@
-/*! angular-google-maps 2.4.0 2016-09-19
+/*! angular-google-maps 2.4.0 2016-11-12
  *  AngularJS directives for Google Maps
  *  git: https://github.com/angular-ui/angular-google-maps.git
  */
@@ -77,8 +77,8 @@ return UUID;
 ;(function() {
   angular.module('uiGmapgoogle-maps.providers').factory('uiGmapMapScriptLoader', [
     '$q', 'uiGmapuuid', function($q, uuid) {
-      var getScriptUrl, includeScript, isGoogleMapsLoaded, scriptId, usedConfiguration;
-      scriptId = void 0;
+      var getScriptUrl, includeScript, isGoogleMapsLoaded, lastNetworkStatus, loadApi, scriptId, usedConfiguration;
+      scriptId = lastNetworkStatus = void 0;
       usedConfiguration = void 0;
       getScriptUrl = function(options) {
         if (options.china) {
@@ -114,6 +114,29 @@ return UUID;
       isGoogleMapsLoaded = function() {
         return angular.isDefined(window.google) && angular.isDefined(window.google.maps);
       };
+      loadApi = function(options) {
+        if (!(!window.cordova && !window.PhoneGap && !window.phonegap && !window.forge)) {
+          return document.addEventListener('deviceready', function() {
+            if (window.navigator.connection && window.Connection && window.navigator.connection.type === window.Connection.NONE) {
+              document.addEventListener('online', function() {
+                if (!lastNetworkStatus || lastNetworkStatus !== 'online') {
+                  lastNetworkStatus = 'online';
+                  if (!isGoogleMapsLoaded()) {
+                    return includeScript(options);
+                  }
+                }
+              });
+              return document.addEventListener('offline', function() {
+                return lastNetworkStatus = 'offline';
+              });
+            } else {
+              return includeScript(options);
+            }
+          });
+        } else {
+          return includeScript(options);
+        }
+      };
       return {
         load: function(options) {
           var deferred, randomizedFunctionName;
@@ -127,14 +150,15 @@ return UUID;
             window[randomizedFunctionName] = null;
             deferred.resolve(window.google.maps);
           };
-          if (window.navigator.connection && window.Connection && window.navigator.connection.type === window.Connection.NONE && !options.preventLoad) {
-            document.addEventListener('online', function() {
-              if (!isGoogleMapsLoaded()) {
-                return includeScript(options);
-              }
-            });
-          } else if (!options.preventLoad) {
-            includeScript(options);
+          if (!options.preventLoad) {
+            if (document.readyState === 'complete') {
+              loadApi(options);
+            } else {
+              window.addEventListener('load', function() {
+                window.removeEventListener('load', loadApi, false);
+                return loadApi(options);
+              });
+            }
           }
           usedConfiguration = options;
           usedConfiguration.randomizedFunctionName = randomizedFunctionName;
@@ -144,7 +168,7 @@ return UUID;
           var config;
           config = usedConfiguration;
           if (!isGoogleMapsLoaded()) {
-            return includeScript(config);
+            return loadApi(config);
           } else {
             if (window[config.randomizedFunctionName]) {
               return window[config.randomizedFunctionName]();
